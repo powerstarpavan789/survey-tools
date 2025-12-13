@@ -1,290 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Irregular Shape Area Calculator</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    body {
-      font-family: Arial;
-      background: #f0f0f0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 0;
-    }
-    h1 {
-      background: #4CAF50;
-      color: white;
-      width: 100%;
-      text-align: center;
-      margin: 0;
-      padding: 15px;
-      font-size: 24px;
-    }
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 18px;
-        padding: 10px;
-      }
-    }
-    .controls {
-      margin: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-    }
-    .controls button, .controls select {
-      padding: 10px 15px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    canvas {
-      border: 2px solid #333;
-      background: white;
-      touch-action: none;
-    }
-    .output {
-      background: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 16px;
-      margin: 10px;
-      white-space: pre-line;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Irregular Shape Area Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{
+  font-family:Arial;
+  background:#f0f0f0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin:0;
+}
+h1{
+  background:#4CAF50;
+  color:#fff;
+  width:100%;
+  text-align:center;
+  margin:0;
+  padding:15px;
+}
+.controls{
+  margin:20px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:center;
+}
+.controls button,.controls select{
+  padding:10px 15px;
+  background:#4CAF50;
+  color:white;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+}
+canvas{
+  border:2px solid #333;
+  background:#fff;
+}
+.output{
+  background:#fff;
+  padding:10px 20px;
+  border-radius:5px;
+  margin:10px;
+  white-space:pre-line;
+}
+</style>
 </head>
+
 <body>
 
 <h1>Irregular Shape Area Calculator</h1>
 
 <div class="controls">
-  <label for="unitSelect" style="color:black;">Input Unit:</label>
-  <select id="unitSelect">
-    <option value="m">Meters</option>
-    <option value="cm">Centimeters</option>
-    <option value="ft">Feet</option>
-    <option value="in">Inches</option>
-    <option value="metricLink">Metric Link (0.20 m)</option>
-    <option value="gunterLink">Gunter Link (0.2012 m)</option>
-  </select>
-  <button onclick="toggleDiagonal()">Add Diagonal</button>
-  <button onclick="calculateAndAdjust()">Calculate Area</button>
-  <button onclick="undo()">Undo</button>
-  <button onclick="redo()">Redo</button>
-  <button onclick="reset()">Reset</button>
-  <button onclick="exportPDF()">Export PDF</button>
+<select id="unitSelect">
+  <option value="m">Meters</option>
+  <option value="cm">Centimeters</option>
+  <option value="ft">Feet</option>
+  <option value="in">Inches</option>
+  <option value="metricLink">Metric Link</option>
+  <option value="gunterLink">Gunter Link</option>
+</select>
+
+<button id="diagonalBtn" onclick="toggleDiagonal()">Add Diagonal</button>
+<button onclick="calculateAndAdjust()">Calculate Area</button>
+<button onclick="undo()">Undo</button>
+<button onclick="redo()">Redo</button>
+<button onclick="reset()">Reset</button>
+<button onclick="exportPDF()">Export PDF</button>
 </div>
 
 <canvas id="canvas"></canvas>
-
 <div id="output" class="output">Total Area: 0.00 m²</div>
-
-<div class="footer">Created with ♥ by Venkateswara Rao</div>
 
 <script>
 const { jsPDF } = window.jspdf;
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
 
-let canvasLocked = false;
-function resizeSquareCanvas(force = false) {
-  if (canvasLocked && !force) return;
-  const size = Math.min(window.innerWidth, window.innerHeight) - 50;
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = size * ratio;
-  canvas.height = size * ratio;
-  canvas.style.width = size + "px";
-  canvas.style.height = size + "px";
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  ctx.font = "12px Arial";
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "center";
+let points=[],edges=[],diagonals=[],lengths={};
+let shapeClosed=false,addingDiagonal=false,tempDiagStart=null;
+let undoStack=[],redoStack=[];
+let canvasLocked=false;
+
+/* ---------- CANVAS ---------- */
+function resizeCanvas(force=false){
+  if(canvasLocked && !force) return;
+  const size=Math.min(window.innerWidth,window.innerHeight)-60;
+  const r=window.devicePixelRatio||1;
+  canvas.width=size*r;
+  canvas.height=size*r;
+  canvas.style.width=size+"px";
+  canvas.style.height=size+"px";
+  ctx.setTransform(r,0,0,r,0,0);
+  ctx.font="12px Arial";
 }
-resizeSquareCanvas(true);
-window.addEventListener("resize", () => resizeSquareCanvas());
+resizeCanvas(true);
+window.addEventListener("resize",()=>resizeCanvas());
 
-let points = [], edges = [], diagonals = [], lengths = {};
-let shapeClosed = false, addingDiagonal = false, tempDiagStart = null;
-let undoStack = [], redoStack = [];
+/* ---------- INPUT ---------- */
+canvas.addEventListener("click",(e)=>{
+  const rect=canvas.getBoundingClientRect();
+  let x=Math.round((e.clientX-rect.left)/10)*10;
+  let y=Math.round((e.clientY-rect.top)/10)*10;
 
-// Canvas click logic
-canvas.addEventListener("click", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  let x = Math.round((e.clientX - rect.left) / 10) * 10;
-  let y = Math.round((e.clientY - rect.top) / 10) * 10;
-  if (!canvasLocked && points.length === 0) canvasLocked = true;
+  if(!canvasLocked && points.length===0) canvasLocked=true;
 
-  if (!shapeClosed && !addingDiagonal) {
+  if(!shapeClosed && !addingDiagonal){
     saveState();
-    const snap = points.findIndex(p => Math.hypot(p[0]-x,p[1]-y) < 10);
-    if (snap === 0 && points.length >= 3) {
-      shapeClosed = true;
-      edges.push([points.length - 1, 0]);
+    const snap=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<10);
+    if(snap===0 && points.length>=3){
+      shapeClosed=true;
+      edges.push([points.length-1,0]);
     } else {
-      points.push([x, y]);
-      if (points.length > 1) edges.push([points.length - 2, points.length - 1]);
+      points.push([x,y]);
+      if(points.length>1) edges.push([points.length-2,points.length-1]);
     }
-  } else if (addingDiagonal && shapeClosed) {
-    const idx = points.findIndex(p => Math.hypot(p[0]-x,p[1]-y) < 10);
-    if (idx !== -1) {
-      if (tempDiagStart === null) tempDiagStart = idx;
-      else {
-        if (tempDiagStart !== idx) {
-          saveState();
-          diagonals.push([tempDiagStart, idx]);
-          tempDiagStart = null;
-        }
+  }
+  else if(addingDiagonal && shapeClosed){
+    const idx=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<10);
+    if(idx!==-1){
+      if(tempDiagStart===null) tempDiagStart=idx;
+      else if(tempDiagStart!==idx){
+        saveState();
+        diagonals.push([tempDiagStart,idx]);
+        tempDiagStart=null;
       }
     }
-  } else if (shapeClosed && !addingDiagonal) {
-    const line = getLineUnderCursor(x, y);
-    if (line) {
-      const key = line.slice().sort().join("-");
-      const val = prompt("Enter line length:", lengths[key] || "");
-      if (!isNaN(parseFloat(val))) {
+  }
+  else if(shapeClosed){
+    const line=getLineUnderCursor(x,y);
+    if(line){
+      const key=line.slice().sort().join("-");
+      const val=prompt("Enter line length:",lengths[key]||"");
+      if(!isNaN(parseFloat(val))){
         saveState();
-        lengths[key] = parseFloat(val);
+        lengths[key]=parseFloat(val);
       }
     }
   }
   draw();
 });
 
-function toggleDiagonal() {
-  addingDiagonal = !addingDiagonal;
-  tempDiagStart = null;
-  alert(addingDiagonal ? "Add Diagonal: ON" : "Add Diagonal: OFF");
+/* ---------- TOGGLE ---------- */
+function toggleDiagonal(){
+  addingDiagonal=!addingDiagonal;
+  tempDiagStart=null;
+  document.getElementById("diagonalBtn").style.background=
+    addingDiagonal?"#ff5722":"#4CAF50";
 }
 
-function getLineUnderCursor(x, y) {
-  const lines = [...edges, ...diagonals];
-  for (const [a, b] of lines) {
-    const [x1, y1] = points[a];
-    const [x2, y2] = points[b];
-    const d = distanceToSegment(x, y, x1, y1, x2, y2);
-    if (d < 10) return [a, b];
+/* ---------- HELPERS ---------- */
+function getLineUnderCursor(x,y){
+  for(const [a,b] of [...edges,...diagonals]){
+    const [x1,y1]=points[a];
+    const [x2,y2]=points[b];
+    if(distanceToSegment(x,y,x1,y1,x2,y2)<10) return [a,b];
   }
   return null;
 }
-
-function distanceToSegment(px, py, x1, y1, x2, y2) {
-  const l2 = (x2 - x1)**2 + (y2 - y1)**2;
-  if (l2 === 0) return Math.hypot(px - x1, py - y1);
-  let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+function distanceToSegment(px,py,x1,y1,x2,y2){
+  const l2=(x2-x1)**2+(y2-y1)**2;
+  if(!l2) return Math.hypot(px-x1,py-y1);
+  let t=((px-x1)*(x2-x1)+(py-y1)*(y2-y1))/l2;
+  t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(x1+t*(x2-x1)),py-(y1+t*(y2-y1)));
+}
+function triangleArea(a,b,c){
+  const s=(a+b+c)/2;
+  return Math.sqrt(s*(s-a)*(s-b)*(s-c));
+}
+function isTriangleValid(a,b,c){
+  return a+b>c && a+c>b && b+c>a;
 }
 
-function triangleArea(a, b, c) {
-  const s = (a + b + c) / 2;
-  return Math.sqrt(s * (s - a) * (s - b) * (s - c));
-}
+/* ---------- CALCULATE + ADJUST ---------- */
+function calculateAndAdjust(){
+  if(!shapeClosed) return alert("First close the shape.");
+  resizeCanvas(true);
 
-// Calculate and adjust
-function calculateAndAdjust() {
-  if (!shapeClosed) return alert("First close the shape.");
-  resizeSquareCanvas(true);
+  const known=Object.entries(lengths)
+    .map(([k,v])=>({k,v:parseFloat(v)}))
+    .filter(o=>!isNaN(o.v));
 
-  const knownSegments = Object.entries(lengths)
-    .map(([key, val]) => ({ key, val: parseFloat(val) }))
-    .filter(s => !isNaN(s.val));
-
-  if (knownSegments.length > 0) {
-    const { key, val } = knownSegments[0];
-    const [i, j] = key.split("-").map(n => parseInt(n));
-    const dx = points[i][0] - points[j][0];
-    const dy = points[i][1] - points[j][1];
-    const currentPx = Math.hypot(dx, dy);
-    if (currentPx > 0) {
-      const scale = val / currentPx;
-      const cx = points.reduce((s, p) => s + p[0], 0) / points.length;
-      const cy = points.reduce((s, p) => s + p[1], 0) / points.length;
-      points = points.map(([x, y]) => [(x - cx) * scale + cx, (y - cy) * scale + cy]);
+  /* --- GEOMETRIC RELAXATION (CORRECT FIX) --- */
+  if(known.length){
+    for(let iter=0;iter<300;iter++){
+      known.forEach(({k,v})=>{
+        const [i,j]=k.split("-").map(Number);
+        let dx=points[j][0]-points[i][0];
+        let dy=points[j][1]-points[i][1];
+        let d=Math.hypot(dx,dy)||0.0001;
+        let diff=(d-v)/d*0.5;
+        points[i][0]+=dx*diff;
+        points[i][1]+=dy*diff;
+        points[j][0]-=dx*diff;
+        points[j][1]-=dy*diff;
+      });
     }
-
-    const padding = 20;
-    const ratio = window.devicePixelRatio || 1;
-    const canvasSize = canvas.width / ratio;
-    const xs = points.map(p => p[0]);
-    const ys = points.map(p => p[1]);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const shapeWidth = maxX - minX || 1, shapeHeight = maxY - minY || 1;
-    const fitScale = Math.min((canvasSize - 2*padding)/shapeWidth, (canvasSize - 2*padding)/shapeHeight,1);
-    const offsetX = (canvasSize - shapeWidth*fitScale)/2 - minX*fitScale;
-    const offsetY = (canvasSize - shapeHeight*fitScale)/2 - minY*fitScale;
-    points = points.map(([x,y]) => [x*fitScale + offsetX, y*fitScale + offsetY]);
   }
 
-  const unit = document.getElementById("unitSelect").value;
-  const toMeters = { m:1, cm:0.01, ft:0.3048, in:0.0254, metricLink:0.2, gunterLink:0.2012 };
-  let factor = toMeters[unit] || 1;
+  /* --- FIT TO CANVAS --- */
+  const pad=20;
+  const size=canvas.width/(window.devicePixelRatio||1);
+  const xs=points.map(p=>p[0]), ys=points.map(p=>p[1]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  const w=maxX-minX||1, h=maxY-minY||1;
+  const fit=Math.min((size-2*pad)/w,(size-2*pad)/h,1);
+  const ox=(size-w*fit)/2-minX*fit;
+  const oy=(size-h*fit)/2-minY*fit;
+  points=points.map(([x,y])=>[x*fit+ox,y*fit+oy]);
 
-  let total = 0;
-  const graph = Array.from({ length: points.length }, () => []);
-  [...edges, ...diagonals].forEach(([a, b]) => { graph[a].push(b); graph[b].push(a); });
+  /* --- GRAPH --- */
+  let total=0;
+  const graph=Array.from({length:points.length},()=>[]);
+  [...edges,...diagonals].forEach(([a,b])=>{
+    graph[a].push(b); graph[b].push(a);
+  });
 
-  const triangles = [];
-  for (let i = 0; i < points.length; i++) {
-    for (let j of graph[i]) {
-      for (let k of graph[j]) {
-        if (k !== i && graph[k].includes(i)) {
-          const triplet = [i,j,k].sort((a,b)=>a-b);
-          if (!triangles.some(t=>t.join()===triplet.join())) triangles.push(triplet);
+  const tris=[];
+  for(let i=0;i<points.length;i++)
+    for(let j of graph[i])
+      for(let k of graph[j])
+        if(k!==i && graph[k].includes(i)){
+          const t=[i,j,k].sort();
+          if(!tris.some(x=>x.join()==t.join())) tris.push(t);
         }
-      }
+
+  /* --- CONSISTENCY WARNING --- */
+  for(const [a,b,c] of tris){
+    const ab=lengths[[a,b].sort().join("-")];
+    const bc=lengths[[b,c].sort().join("-")];
+    const ca=lengths[[c,a].sort().join("-")];
+    if(ab&&bc&&ca && !isTriangleValid(ab,bc,ca)){
+      alert(`⚠️ Inconsistent lengths!\nTriangle (${a},${b},${c}) impossible.`);
+      return;
     }
   }
 
-  for (const [a,b,c] of triangles) {
-    const ab = lengths[[a,b].sort().join("-")];
-    const bc = lengths[[b,c].sort().join("-")];
-    const ca = lengths[[c,a].sort().join("-")];
-    if (ab && bc && ca) total += triangleArea(ab, bc, ca);
+  /* --- AREA --- */
+  for(const [a,b,c] of tris){
+    const ab=lengths[[a,b].sort().join("-")];
+    const bc=lengths[[b,c].sort().join("-")];
+    const ca=lengths[[c,a].sort().join("-")];
+    if(ab&&bc&&ca) total+=triangleArea(ab,bc,ca);
   }
 
-  const area_m2 = total*(factor*factor);
-  const area_cm2 = area_m2*10000;
-  const area_ft2 = area_m2*10.7639;
-  const area_in2 = area_m2*1550.003;
-  const area_acres = area_m2/4046.8564224;
+  const unit=document.getElementById("unitSelect").value;
+  const toM={m:1,cm:0.01,ft:0.3048,in:0.0254,metricLink:0.2,gunterLink:0.2012};
+  const f=toM[unit]||1;
+  const m2=total*f*f;
 
   document.getElementById("output").innerText=
-    `Total Area:\n${area_m2.toFixed(2)} m²\n${area_cm2.toFixed(2)} cm²\n${area_ft2.toFixed(2)} ft²\n${area_in2.toFixed(2)} in²\n${area_acres.toFixed(4)} acres`;
+`Total Area:
+${m2.toFixed(2)} m²
+${(m2*10000).toFixed(2)} cm²
+${(m2*10.7639).toFixed(2)} ft²
+${(m2*1550.003).toFixed(2)} in²
+${(m2/4046.8564).toFixed(4)} acres`;
 
   draw();
 }
 
-// Draw function unchanged
-function draw() {
+/* ---------- DRAW ---------- */
+function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const drawLine=([a,b],color)=>{
-    ctx.strokeStyle=color;
+  const drawLine=([a,b],c)=>{
+    ctx.strokeStyle=c;
     ctx.beginPath();
     ctx.moveTo(...points[a]);
     ctx.lineTo(...points[b]);
     ctx.stroke();
+
     const midX=(points[a][0]+points[b][0])/2;
     const midY=(points[a][1]+points[b][1])/2;
     const key=[a,b].sort().join("-");
     const label=lengths[key]??key;
-    const angle=Math.atan2(points[b][1]-points[a][1], points[b][0]-points[a][0]);
+    const ang=Math.atan2(points[b][1]-points[a][1],points[b][0]-points[a][0]);
+
     ctx.save();
-    ctx.translate(midX, midY);
-    ctx.rotate(angle);
+    ctx.translate(midX,midY);
+    ctx.rotate(ang);
     ctx.fillStyle="#000";
     ctx.fillText(label,0,-5);
     ctx.restore();
   };
   edges.forEach(e=>drawLine(e,"black"));
   diagonals.forEach(d=>drawLine(d,"blue"));
+
   points.forEach(([x,y],i)=>{
     ctx.fillStyle="red";
     ctx.beginPath();
@@ -295,54 +303,25 @@ function draw() {
   });
 }
 
-function saveState(){ undoStack.push(JSON.stringify({points,edges,diagonals,lengths})); redoStack=[]; }
-function undo(){ if(undoStack.length){ redoStack.push(JSON.stringify({points,edges,diagonals,lengths})); const state=JSON.parse(undoStack.pop()); ({points,edges,diagonals,lengths}=state); canvasLocked=!!(points&&points.length); draw(); } }
-function redo(){ if(redoStack.length){ undoStack.push(JSON.stringify({points,edges,diagonals,lengths})); const state=JSON.parse(redoStack.pop()); ({points,edges,diagonals,lengths}=state); canvasLocked=!!(points&&points.length); draw(); } }
-function reset(){ points=[]; edges=[]; diagonals=[]; lengths={}; shapeClosed=false; addingDiagonal=false; tempDiagStart=null; undoStack=[]; redoStack=[]; canvasLocked=false; document.getElementById("output").innerText=`Total Area: 0.00 m²`; draw(); }
+/* ---------- STATE ---------- */
+function saveState(){undoStack.push(JSON.stringify({points,edges,diagonals,lengths}));redoStack=[];}
+function undo(){if(undoStack.length){redoStack.push(JSON.stringify({points,edges,diagonals,lengths}));({points,edges,diagonals,lengths}=JSON.parse(undoStack.pop()));draw();}}
+function redo(){if(redoStack.length){undoStack.push(JSON.stringify({points,edges,diagonals,lengths}));({points,edges,diagonals,lengths}=JSON.parse(redoStack.pop()));draw();}}
+function reset(){
+  points=[];edges=[];diagonals=[];lengths={};
+  shapeClosed=false;addingDiagonal=false;
+  canvasLocked=false;
+  document.getElementById("diagonalBtn").style.background="#4CAF50";
+  document.getElementById("output").innerText="Total Area: 0.00 m²";
+  resizeCanvas(true);
+  draw();
+}
 
-// --- Updated PDF export with table ---
-function exportPDF() {
-  const pdf = new jsPDF();
-  pdf.setFontSize(16);
-  pdf.text("Irregular Shape Area Report", 105, 20, { align: "center" });
-  pdf.setFontSize(10);
-  pdf.text("Generated: " + new Date().toLocaleString(), 10, 30);
-  pdf.setFontSize(12);
-
-  // Area Output
-  let outputText = document.getElementById("output").innerText;
-  let split = pdf.splitTextToSize(outputText, 180);
-  pdf.text(split, 10, 40);
-
-  // Table header
-  pdf.setFontSize(12);
-  let y = 80;
-  pdf.text("Line Lengths", 10, y);
-  y += 6;
-  pdf.setFontSize(10);
-  pdf.text("Line", 10, y);
-  pdf.text("Length", 50, y);
-  pdf.text("Unit", 90, y);
-  y += 4;
-  pdf.setLineWidth(0.5);
-  pdf.line(10, y, 120, y);
-  y += 4;
-
-  const unit = document.getElementById("unitSelect").value;
-  [...edges, ...diagonals].forEach(([a, b]) => {
-    const key = [a, b].sort().join("-");
-    const val = lengths[key] ? lengths[key] : "Not set";
-    pdf.text(`Line ${a}-${b}`, 10, y);
-    pdf.text(val !== "Not set" ? val.toString() : "Not set", 50, y);
-    pdf.text(val !== "Not set" ? unit : "-", 90, y);
-    y += 6;
-    if (y > 270) { pdf.addPage(); y = 20; }
-  });
-
-  // Add canvas image
-  const imgData = canvas.toDataURL("image/png", 1.0);
-  pdf.addImage(imgData,"PNG",120,80,70,70);
-
+function exportPDF(){
+  const pdf=new jsPDF();
+  pdf.text("Irregular Shape Area Report",105,20,{align:"center"});
+  pdf.text(document.getElementById("output").innerText,10,40);
+  pdf.addImage(canvas.toDataURL(),"PNG",120,80,70,70);
   pdf.save("shape_area_report.pdf");
 }
 </script>
