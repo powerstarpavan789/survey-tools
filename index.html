@@ -338,13 +338,13 @@ function reset(){
  draw();
 }
 
-/* ---------- EXPORT PDF ---------- */
+/* ---------- EXPORT PDF (ONLY CHANGED SECTION) ---------- */
 function exportPDF(){
 
  const pdf=new jsPDF();
 
  const tempCanvas=document.createElement("canvas");
- const qualityScale=2;
+ const qualityScale=1.1;
 
  tempCanvas.width=canvas.width*qualityScale;
  tempCanvas.height=canvas.height*qualityScale;
@@ -357,7 +357,15 @@ function exportPDF(){
  tempCtx.scale(qualityScale,qualityScale);
  tempCtx.drawImage(canvas,0,0);
 
- const img=tempCanvas.toDataURL("image/png",0.95);
+ const img=tempCanvas.toDataURL("image/jpeg",0.55);
+
+ const pageWidth=pdf.internal.pageSize.getWidth();
+ const pageHeight=pdf.internal.pageSize.getHeight();
+
+ const imgWidth=170;
+ const imgHeight=120;
+
+ const xCenter=(pageWidth-imgWidth)/2;
 
  pdf.setFontSize(14);
  pdf.text("Shape Area Report",10,15);
@@ -365,20 +373,15 @@ function exportPDF(){
  pdf.setFontSize(11);
  pdf.text(document.getElementById("output").innerText,10,30);
 
- pdf.addImage(img,"PNG",10,60,180,120);
+ pdf.addImage(img,"JPEG",xCenter,55,imgWidth,imgHeight);
 
  pdf.setFont("helvetica","italic");
  pdf.setFontSize(10);
 
  const footer="Module Designed By Maddam Venkateswara Rao";
- const pageWidth=pdf.internal.pageSize.getWidth();
  const textWidth=pdf.getTextWidth(footer);
 
- pdf.text(
-   footer,
-   (pageWidth-textWidth)/2,
-   pdf.internal.pageSize.getHeight()-10
- );
+ pdf.text(footer,(pageWidth-textWidth)/2,pageHeight-10);
 
  pdf.save("shape_report.pdf");
 }
