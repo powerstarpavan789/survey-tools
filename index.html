@@ -88,6 +88,11 @@ let shapeClosed=false,addingDiagonal=false,tempDiagStart=null;
 let undoStack=[],redoStack=[];
 let canvasLocked=false;
 
+/* ✅ NEW — MOBILE SNAP RADIUS */
+function getSnapRadius(){
+ return window.innerWidth < 700 ? 20 : 10;
+}
+
 /* ---------- CANVAS ---------- */
 function resizeCanvas(force=false){
  if(canvasLocked && !force) return;
@@ -113,7 +118,7 @@ canvas.addEventListener("click",(e)=>{
 
  if(!shapeClosed && !addingDiagonal){
   saveState();
-  const snap=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<10);
+  const snap=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<getSnapRadius());
   if(snap===0 && points.length>=3){
    shapeClosed=true;
    edges.push([points.length-1,0]);
@@ -123,7 +128,7 @@ canvas.addEventListener("click",(e)=>{
   }
  }
  else if(addingDiagonal && shapeClosed){
-  const idx=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<10);
+  const idx=points.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<getSnapRadius());
   if(idx!==-1){
    if(tempDiagStart===null) tempDiagStart=idx;
    else if(tempDiagStart!==idx){
@@ -160,7 +165,7 @@ function getLineUnderCursor(x,y){
  for(const [a,b] of [...edges,...diagonals]){
   const [x1,y1]=points[a];
   const [x2,y2]=points[b];
-  if(distanceToSegment(x,y,x1,y1,x2,y2)<10) return [a,b];
+  if(distanceToSegment(x,y,x1,y1,x2,y2)<getSnapRadius()) return [a,b];
  }
  return null;
 }
@@ -181,7 +186,6 @@ function isTriangleValid(a,b,c){
 
 /* ---------- CALCULATE + AUTO FIT ---------- */
 function calculateAndAdjust(){
-
  if(!shapeClosed) return alert("First close shape.");
  resizeCanvas(true);
 
@@ -338,7 +342,7 @@ function reset(){
  draw();
 }
 
-/* ---------- EXPORT PDF (ONLY CHANGED SECTION) ---------- */
+/* ---------- EXPORT PDF ---------- */
 function exportPDF(){
 
  const pdf=new jsPDF();
