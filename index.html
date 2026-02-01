@@ -21,7 +21,8 @@ h1{
   width:100%;
   text-align:center;
   margin:0;
-  padding:15px;
+  padding:10px;
+  font-size:22px;
 }
 .controls{
   margin:20px;
@@ -71,7 +72,7 @@ canvas{
 <button onclick="undo()">Undo</button>
 <button onclick="redo()">Redo</button>
 <button onclick="reset()">Reset</button>
-<button onclick="exportFile()">Export</button>
+<button onclick="exportPDF()">Export PDF</button>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -188,7 +189,6 @@ function calculateAndAdjust(){
  .map(([k,v])=>({k,v:parseFloat(v)}))
  .filter(o=>!isNaN(o.v));
 
- /* RELAX SCALE */
  if(known.length){
  const size = canvas.width/(window.devicePixelRatio||1);
  const usable = size*0.6;
@@ -213,7 +213,6 @@ function calculateAndAdjust(){
  }
  }
 
- /* AUTO FIT GUARANTEE */
  const size = canvas.width/(window.devicePixelRatio||1);
  const pad=20;
 
@@ -242,7 +241,6 @@ function calculateAndAdjust(){
   (y-cy)*fitScale + size/2
  ]);
 
- /* AREA ORIGINAL VALUES */
  let total=0;
  const graph=Array.from({length:points.length},()=>[]);
  [...edges,...diagonals].forEach(([a,b])=>{
@@ -340,33 +338,49 @@ function reset(){
  draw();
 }
 
-/* ---------- EXPORT MODULE ---------- */
-function exportFile(){
+/* ---------- EXPORT PDF ---------- */
+function exportPDF(){
 
- const choice=prompt("Type PDF or PNG").toLowerCase();
+ const pdf=new jsPDF();
 
- if(choice==="png"){
-  const link=document.createElement("a");
-  link.download="shape.png";
-  link.href=canvas.toDataURL("image/png");
-  link.click();
- }
+ const tempCanvas=document.createElement("canvas");
+ const qualityScale=2;
 
- else if(choice==="pdf"){
-  const pdf=new jsPDF();
-  pdf.setFontSize(12);
-  pdf.text("Shape Area Report",10,15);
-  pdf.text(document.getElementById("output").innerText,10,30);
+ tempCanvas.width=canvas.width*qualityScale;
+ tempCanvas.height=canvas.height*qualityScale;
 
-  const img=canvas.toDataURL("image/jpeg",0.6); // smaller size
-  pdf.addImage(img,"JPEG",10,60,100,100);
+ const tempCtx=tempCanvas.getContext("2d");
 
-  pdf.save("shape_report.pdf");
- }
+ tempCtx.fillStyle="#FFFFFF";
+ tempCtx.fillRect(0,0,tempCanvas.width,tempCanvas.height);
 
- else{
-  alert("Type PDF or PNG only");
- }
+ tempCtx.scale(qualityScale,qualityScale);
+ tempCtx.drawImage(canvas,0,0);
+
+ const img=tempCanvas.toDataURL("image/png",0.95);
+
+ pdf.setFontSize(14);
+ pdf.text("Shape Area Report",10,15);
+
+ pdf.setFontSize(11);
+ pdf.text(document.getElementById("output").innerText,10,30);
+
+ pdf.addImage(img,"PNG",10,60,180,120);
+
+ pdf.setFont("helvetica","italic");
+ pdf.setFontSize(10);
+
+ const footer="Module Designed By Maddam Venkateswara Rao";
+ const pageWidth=pdf.internal.pageSize.getWidth();
+ const textWidth=pdf.getTextWidth(footer);
+
+ pdf.text(
+   footer,
+   (pageWidth-textWidth)/2,
+   pdf.internal.pageSize.getHeight()-10
+ );
+
+ pdf.save("shape_report.pdf");
 }
 </script>
 </body>
